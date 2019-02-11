@@ -101,8 +101,8 @@ true
     let looser = if p1 == winner then p2 else p1
     let prizePool = wavesBalance(me) - serviceCommission - payout.fee
     let payoutValid =
-    pt[1].recipient == winner && pt[1].amount == (if noWinner then prizePool/2 else prizePool) &&
-    pt[2].recipient == looser && pt[2].amount == (if noWinner then prizePool/2 else 0) 
+    (pt[1].recipient == winner || throw("1")) && (pt[1].amount == (if noWinner then prizePool/2 else prizePool) || throw("3")) &&
+    (pt[2].recipient == looser || throw("2")) && (pt[2].amount == (if noWinner then prizePool/2 else 0) || throw("4"))
     payout.fee == 700000 && pt[0].recipient == serviceAddress && pt[0].amount == serviceCommission && payoutValid
     case _ => false
   }
