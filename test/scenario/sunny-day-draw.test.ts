@@ -14,7 +14,7 @@ const api = apiCtor(conf, axiosHttp)
 const { transferWaves, massTransferWaves, setKeysAndValues, setScript } = apiHelpers(api)
 const { randomAccountWithBalance, randomAccount } = tests(testingHostSeed, api)
 
-xit('sunny day draw', async () => {
+it('sunny day draw', async () => {
   const { seed: player1Seed, publicKey: player1Key, address: player1Address } =
     await randomAccountWithBalance(gameBet + defaultFee.transfer)
 
@@ -47,18 +47,13 @@ xit('sunny day draw', async () => {
     setKeysAndValues({ publicKey: matchKey }, { 'p2m': p2Move }),
     setKeysAndValues({ publicKey: matchKey }, { 'p1m': p1Move })])
 
-  //#STEP8# winner
-  await setKeysAndValues({ publicKey: matchKey }, {
-    'w': [0],
-  })
-
   //#STEP9# payout
-  const matchBalance = (await api.getBalance(matchAddress)) - serviceCommission - 800000
+  const matchBalance = (await api.getBalance(matchAddress)) - serviceCommission - 700000
   await massTransferWaves({ publicKey: matchKey }, {
     [serviceAddress]: serviceCommission,
     [player1Address]: matchBalance / 2,
     [player2Address]: matchBalance / 2,
-  }, { fee: 800000 })
+  }, { fee: 700000 })
 
 
 })

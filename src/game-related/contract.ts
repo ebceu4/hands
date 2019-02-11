@@ -65,7 +65,16 @@ match (tx) {
 
     else if isDefined(getBinary(data.data, "w")) then
 
-    let h = extract(getInteger(me, "h"))
+true
+    else
+    none
+
+    dataValid
+
+    case payout:MassTransferTransaction => 
+    let pt = payout.transfers
+    
+        let h = extract(getInteger(me, "h"))
     
     let p1moves = take(extract(getBinary(me, "p1m")), 3)
     let p2moves = take(extract(getBinary(me, "p2m")), 3)
@@ -81,20 +90,10 @@ match (tx) {
     + (if (p1m2 == rock && p2m2 == scissors) || (p1m2 == paper && p2m2 == rock) || (p1m2 == scissors && p2m2 == paper) then +1 else if p1m2 == p2m2 then 0 else -1)
     + (if (p1m3 == rock && p2m3 == scissors) || (p1m3 == paper && p2m3 == rock) || (p1m3 == scissors && p2m3 == paper) then +1 else if p1m3 == p2m3 then 0 else -1)
   
-    let winner = if height - h > timeout && (!isDefined(getBinary(me, "p1m")) || !isDefined(getBinary(me, "p1m"))) then
+    let w = if height - h > timeout && (!isDefined(getBinary(me, "p1m")) || !isDefined(getBinary(me, "p1m"))) then
     if !isDefined(getBinary(me, "p1m")) && !isDefined(getBinary(me, "p1m")) then base58'1' else if !isDefined(getBinary(me, "p1m")) then extract(getBinary(me, "p2k")) else player1Key
     else (if score > 0 then player1Key else if score == 0 then base58'1' else extract(getBinary(me, "p2k")))
 
-    winner == extract(getBinary(data.data, "w")) && size(data.data) == 1
-    else
-    none
-
-    dataValid
-
-    case payout:MassTransferTransaction => 
-    let pt = payout.transfers
-    
-    let w = extract(getBinary(me, "w"))
     let p1 = addressFromPublicKey(player1Key)
     let p2 = addressFromPublicKey(extract(getBinary(me, "p2k")))
     let noWinner = size(w) == 1
@@ -104,7 +103,7 @@ match (tx) {
     let payoutValid =
     pt[1].recipient == winner && pt[1].amount == (if noWinner then prizePool/2 else prizePool) &&
     pt[2].recipient == looser && pt[2].amount == (if noWinner then prizePool/2 else 0) 
-    payout.fee == 800000 && pt[0].recipient == serviceAddress && pt[0].amount == serviceCommission && payoutValid
+    payout.fee == 700000 && pt[0].recipient == serviceAddress && pt[0].amount == serviceCommission && payoutValid
     case _ => false
   }
 

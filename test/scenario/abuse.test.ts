@@ -14,7 +14,7 @@ const api = apiCtor(conf, axiosHttp)
 const { transferWaves, massTransferWaves, setKeysAndValues, setScript } = apiHelpers(api)
 const { randomAccountWithBalance, randomAccount } = tests(testingHostSeed, api)
 
-it('abuse', async () => {
+xit('abuse', async () => {
   const { seed: player1Seed, publicKey: player1Key, address: player1Address } =
     await randomAccountWithBalance(gameBet + defaultFee.transfer)
 

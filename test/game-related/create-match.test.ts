@@ -7,7 +7,6 @@ import { defaultFee } from '../fees'
 import { base58decode as from58 } from '@waves/waves-crypto'
 import { compiledScript } from '../../src/game-related/contract'
 import { hideMoves, gameBet, serviceCommission, serviceAddress } from '../../src/game-related/game'
-import { createMatch } from '../../src/game-related/create-match'
 
 jest.setTimeout(1000 * 60 * 60)
 
