@@ -46,7 +46,7 @@ match (tx) {
       let p1m2 = takeRight(take(p1moves, 2), 1)
       let p1m3 = takeRight(p1moves, 1)
       let err1 = p1m1 != rock && p1m1 != scissors && p1m1 != paper && p1m2 != rock && p1m2 != scissors && p1m2 != paper && p1m3 != rock && p1m3 != scissors && p1m3 != paper
-
+      wavesBalance(me) >= bet &&
       !err1 &&
       !isDefined(getBinary(me, "p1m")) &&
       size(data.data) == 1 &&

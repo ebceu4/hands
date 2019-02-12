@@ -42,7 +42,18 @@ const keeperMock = (seeds: string[]): IKeeper => {
 
 const { randomAccountWithBalance } = tests(testingHostSeed, api)
 
-it('match sunny day', async () => {
+it('test', async () => {
+  try {
+
+    const s = service(api, keeperMock([]))
+    const a = await s.matches()
+    console.log(a)
+  } catch (error) {
+    console.log(error)
+  }
+})
+
+xit('match sunny day', async () => {
   const [
     { seed: player1Seed, address: player1Address },
     { seed: player2Seed, address: player2Address },
@@ -79,7 +90,7 @@ xit('payout', async () => {
     {
       address: matchAddress,
       publicKey: matchKey,
-      status: MatchStatus.Waiting,
+      status: MatchStatus.WaitingForPayout,
       reservationHeight: 490893,
       creator: {
         address: address({ public: player1Key }, config.chainId),
