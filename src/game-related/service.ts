@@ -50,7 +50,7 @@ export const service = (api: IWavesApi, keeper: IKeeper) => {
 
   return {
 
-    matches: async (): Promise<any> => {
+    matches: async (): Promise<IMatch[]> => {
       const matchScripts = await api.getSetScriptTxsByScript(compiledScript).then(s => s.map(x => ({ ...x, timestamp: Date.parse(x.timestamp.toString()) })).toRecord(x => x.sender))
 
       if (Object.keys(matchScripts).length == 0)
@@ -143,7 +143,7 @@ export const service = (api: IWavesApi, keeper: IKeeper) => {
         }
 
         return match
-      })
+      }).filter(x => x !== undefined) as IMatch[]
     },
 
     create: async (hands: number[]): Promise<CreateMatchResult> => {

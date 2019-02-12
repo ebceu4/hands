@@ -11,7 +11,7 @@ import { service } from '../../src/game-related/service'
 import { IKeeper, KeeperAuth, KeeperPublicState } from '../../src/keeper/interfaces'
 import { transfer, TTx, ITransferTransaction } from '@waves/waves-transactions'
 import { BASE64_STRING } from '@waves/marshall/dist/serializePrimitives'
-import { MatchStatus } from '../../src/game-related/interfaces'
+import { MatchStatus, IMatch, MatchResult } from '../../src/game-related/interfaces'
 
 jest.setTimeout(1000 * 60 * 60)
 
@@ -40,20 +40,7 @@ const keeperMock = (seeds: string[]): IKeeper => {
   }
 }
 
-const { randomAccountWithBalance } = tests(testingHostSeed, api)
-
-it('test', async () => {
-  try {
-
-    const s = service(api, keeperMock([]))
-    const a = await s.matches()
-    console.log(a)
-  } catch (error) {
-    console.log(error)
-  }
-})
-
-xit('match sunny day', async () => {
+const createPlayers = async () => {
   const [
     { seed: player1Seed, address: player1Address },
     { seed: player2Seed, address: player2Address },
@@ -61,19 +48,81 @@ xit('match sunny day', async () => {
     [randomAccountWithBalance(gameBet + defaultFee.transfer),
     randomAccountWithBalance(gameBet + defaultFee.transfer)]
   )
+
+  return { player1Address, player2Address, player1Seed, player2Seed }
+}
+
+const playFullMatch = async (p1Moves: number[], p2Moves: number[]) => {
+
+  const { player1Address, player2Address, player1Seed, player2Seed } = await createPlayers()
   const s = service(api, keeperMock([player1Seed, player2Seed]))
 
-  const { match, move: p1Move, moveHash: p1MoveHash } = await s.create([1, 1, 1])
+  const { match, move: p1Move, moveHash: p1MoveHash } = await s.create(p1Moves)
 
-  await s.join(match, [2, 2, 2])
+  await s.join(match, p2Moves)
 
   await s.reveal(match, p1Move)
 
   await s.payout(match)
 
   const [p1Balance, p2Balance] = await Promise.all([api.getBalance(player1Address), api.getBalance(player2Address)])
+
+  return { p1Balance, p2Balance, player1Seed, player2Seed }
+}
+
+const createMatch = async (p1Moves: number[]) => {
+  const { seed: player1Seed } = await randomAccountWithBalance(gameBet + defaultFee.transfer)
+  const s = service(api, keeperMock([player1Seed]))
+
+  const { match, move: p1Move, moveHash: p1MoveHash } = await s.create(p1Moves)
+
+  return { player1Seed, p1Move, p1MoveHash, match }
+}
+
+const { randomAccountWithBalance } = tests(testingHostSeed, api)
+
+it('create match and matches', async () => {
+
+  const p1Moves = [1, 1, 1]
+  const p2Moves = [2, 2, 2]
+
+  const { player1Address, player2Address, player1Seed, player2Seed } = await createPlayers()
+  const s = service(api, keeperMock([player1Seed, player2Seed]))
+
+  const { match, move: p1Move, moveHash: p1MoveHash } = await s.create(p1Moves)
+
+  let m: IMatch
+
+  m = (await s.matches()).filter(m => m.address == match.address)[0]
+  expect(m.status).toBe(MatchStatus.WaitingForP2)
+
+  await s.join(match, p2Moves)
+
+  m = (await s.matches()).filter(m => m.address == match.address)[0]
+  expect(m.status).toBe(MatchStatus.WaitingP1ToReveal)
+
+  await s.reveal(match, p1Move)
+
+  m = (await s.matches()).filter(m => m.address == match.address)[0]
+  expect(m.status).toBe(MatchStatus.WaitingForPayout)
+
+  await s.payout(match)
+
+  m = (await s.matches()).filter(m => m.address == match.address)[0]
+  expect(m.status).toBe(MatchStatus.Done)
+  expect(m.result).toBe(MatchResult.Opponent)
+
+  const [p1Balance, p2Balance] = await Promise.all([api.getBalance(player1Address), api.getBalance(player2Address)])
+
   expect(p1Balance).toBe(0)
-  expect(p2Balance).toBeGreaterThan(1)
+  expect(p2Balance).toBeGreaterThan(gameBet)
+})
+
+xit('match sunny day', async () => {
+  const { p1Balance, p2Balance } = await playFullMatch([1, 1, 1], [2, 2, 2])
+
+  expect(p1Balance).toBe(0)
+  expect(p2Balance).toBeGreaterThan(gameBet)
 })
 
 xit('payout', async () => {
