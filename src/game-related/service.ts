@@ -48,102 +48,111 @@ export const service = (api: IWavesApi, keeper: IKeeper) => {
     return match
   }
 
+  const matches = async (): Promise<IMatch[]> => {
+    const matchScripts = await api.getSetScriptTxsByScript(compiledScript).then(s => s.map(x => ({ ...x, timestamp: Date.parse(x.timestamp.toString()) })).toRecord(x => x.sender))
+
+    if (Object.keys(matchScripts).length == 0)
+      return []
+
+    const minMax = Object.values(matchScripts).minMax(x => x.timestamp)
+
+    const p1Inits = toKeysAndValuesExact((await api.getDataTxsByKey({ key: 'p1mh', timeStart: minMax.min.timestamp - timeGap, timeEnd: minMax.max.timestamp + timeGap })), {
+      'p1mh': binary,
+      'mk': binary,
+      'p1k': binary,
+    },
+      x => ({ sender: x.sender }))
+      .map(x => ({
+        sender: x.sender,
+        p1mh: base58encode(x.p1mh),
+        p1k: base58encode(x.p1k),
+        mk: base58encode(x.mk),
+      }))
+      .toRecord(x => x.sender)
+
+    const p2Inits = toKeysAndValuesExact((await api.getDataTxsByKey({ key: 'p2mh', timeStart: minMax.min.timestamp - timeGap, timeEnd: minMax.max.timestamp + timeGap })), {
+      'p2mh': binary,
+      'p2k': binary,
+      'h': num,
+    },
+      x => ({ sender: x.sender }))
+      .map(x => ({
+        sender: x.sender,
+        p2mh: base58encode(x.p2mh),
+        p2k: base58encode(x.p2k),
+        h: x.h,
+      }))
+      .toRecord(x => x.sender)
+
+    const p2Reveals = toKeysAndValuesExact((await api.getDataTxsByKey({ key: 'p2m', timeStart: minMax.min.timestamp - timeGap, timeEnd: minMax.max.timestamp + timeGap })), {
+      'p2m': binary,
+    },
+      x => ({ sender: x.sender }))
+      .toRecord(x => x.sender)
+
+    const p1Reveals = toKeysAndValuesExact((await api.getDataTxsByKey({ key: 'p1m', timeStart: minMax.min.timestamp - timeGap, timeEnd: minMax.max.timestamp + timeGap })), {
+      'p1m': binary,
+    },
+      x => ({ sender: x.sender }))
+      .toRecord(x => x.sender)
+
+    const payouts = (await api.getMassTransfers({ recipient: serviceAddress, timeStart: minMax.min.timestamp })).toRecord(x => x.sender)
+
+    const h = await api.getHeight()
+
+    return Object.keys(matchScripts).map(a => {
+      if (!p1Inits[a])
+        return undefined
+
+      const match: IMatch = {
+        address: a,
+        publicKey: matchScripts[a].senderPublicKey,
+        status: MatchStatus.WaitingForP2,
+        timestamp: matchScripts[a].timestamp,
+        creator: {
+          address: address({ public: p1Inits[a].p1k }, config.chainId),
+          publicKey: p1Inits[a].p1k,
+        },
+      }
+
+      if (p2Inits[a]) {
+        const { h, p2k, p2mh } = p2Inits[a]
+        match.opponent = {
+          address: address({ public: p2k }, config.chainId),
+          publicKey: p2k,
+        }
+        match.reservationHeight = h
+      }
+
+      if (p2Reveals[a]) {
+        const { p2m } = p2Reveals[a]
+        match.opponent!.moves = [p2m[0], p2m[1], p2m[2]] as [HandSign, HandSign, HandSign]
+      }
+
+      if (p1Reveals[a]) {
+        const { p1m } = p1Reveals[a]
+        match.creator.moves = [p1m[0], p1m[1], p1m[2]] as [HandSign, HandSign, HandSign]
+      }
+
+      resolveStatusAndResult(match, h)
+
+      if (payouts[a]) {
+        match.status = MatchStatus.Done
+      }
+
+      return match
+    }).filter(x => x !== undefined) as IMatch[]
+  }
+
   return {
 
-    matches: async (): Promise<IMatch[]> => {
-      const matchScripts = await api.getSetScriptTxsByScript(compiledScript).then(s => s.map(x => ({ ...x, timestamp: Date.parse(x.timestamp.toString()) })).toRecord(x => x.sender))
+    matches,
 
-      if (Object.keys(matchScripts).length == 0)
-        return []
-
-      const minMax = Object.values(matchScripts).minMax(x => x.timestamp)
-
-      const p1Inits = toKeysAndValuesExact((await api.getDataTxsByKey({ key: 'p1mh', timeStart: minMax.min.timestamp - timeGap, timeEnd: minMax.max.timestamp + timeGap })), {
-        'p1mh': binary,
-        'mk': binary,
-        'p1k': binary,
-      },
-        x => ({ sender: x.sender }))
-        .map(x => ({
-          sender: x.sender,
-          p1mh: base58encode(x.p1mh),
-          p1k: base58encode(x.p1k),
-          mk: base58encode(x.mk),
-        }))
-        .toRecord(x => x.sender)
-
-      const p2Inits = toKeysAndValuesExact((await api.getDataTxsByKey({ key: 'p2mh', timeStart: minMax.min.timestamp - timeGap, timeEnd: minMax.max.timestamp + timeGap })), {
-        'p2mh': binary,
-        'p2k': binary,
-        'h': num,
-      },
-        x => ({ sender: x.sender }))
-        .map(x => ({
-          sender: x.sender,
-          p2mh: base58encode(x.p2mh),
-          p2k: base58encode(x.p2k),
-          h: x.h,
-        }))
-        .toRecord(x => x.sender)
-
-      const p2Reveals = toKeysAndValuesExact((await api.getDataTxsByKey({ key: 'p2m', timeStart: minMax.min.timestamp - timeGap, timeEnd: minMax.max.timestamp + timeGap })), {
-        'p2m': binary,
-      },
-        x => ({ sender: x.sender }))
-        .toRecord(x => x.sender)
-
-      const p1Reveals = toKeysAndValuesExact((await api.getDataTxsByKey({ key: 'p1m', timeStart: minMax.min.timestamp - timeGap, timeEnd: minMax.max.timestamp + timeGap })), {
-        'p1m': binary,
-      },
-        x => ({ sender: x.sender }))
-        .toRecord(x => x.sender)
-
-      const payouts = (await api.getMassTransfers({ recipient: serviceAddress, timeStart: minMax.min.timestamp })).toRecord(x => x.sender)
-
-      const h = await api.getHeight()
-
-      return Object.keys(matchScripts).map(a => {
-        if (!p1Inits[a])
-          return undefined
-
-        const match: IMatch = {
-          address: a,
-          publicKey: matchScripts[a].senderPublicKey,
-          status: MatchStatus.WaitingForP2,
-          timestamp: matchScripts[a].timestamp,
-          creator: {
-            address: address({ public: p1Inits[a].p1k }, config.chainId),
-            publicKey: p1Inits[a].p1k,
-          },
-        }
-
-        if (p2Inits[a]) {
-          const { h, p2k, p2mh } = p2Inits[a]
-          match.opponent = {
-            address: address({ public: p2k }, config.chainId),
-            publicKey: p2k,
-          }
-          match.reservationHeight = h
-        }
-
-        if (p2Reveals[a]) {
-          const { p2m } = p2Reveals[a]
-          match.opponent!.moves = [p2m[0], p2m[1], p2m[2]] as [HandSign, HandSign, HandSign]
-        }
-
-        if (p1Reveals[a]) {
-          const { p1m } = p1Reveals[a]
-          match.creator.moves = [p1m[0], p1m[1], p1m[2]] as [HandSign, HandSign, HandSign]
-        }
-
-        resolveStatusAndResult(match, h)
-
-        if (payouts[a]) {
-          match.status = MatchStatus.Done
-        }
-
-        return match
-      }).filter(x => x !== undefined) as IMatch[]
+    match: async (address: string): Promise<IMatch> => {
+      const m = (await matches()).filter(m => m.address == address)
+      if (m.length == 1)
+        return m[0]
+      else throw new Error('Match not found')
     },
 
     create: async (hands: number[]): Promise<CreateMatchResult> => {

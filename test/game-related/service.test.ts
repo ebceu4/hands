@@ -52,6 +52,27 @@ const createPlayers = async () => {
   return { player1Address, player2Address, player1Seed, player2Seed }
 }
 
+const benchmark = async (times: number, a: () => Promise<any>) => {
+  let avg = 0
+  let best = Number.MAX_SAFE_INTEGER
+  let worst = 0
+
+  for (let index = 0; index < times; index++) {
+    let startTime = new Date().getTime()
+    await (a())
+    const elapsed = (new Date().getTime() - startTime)
+    console.log(elapsed + 'mills')
+    avg += elapsed / times
+    if (best > elapsed)
+      best = elapsed
+    if (worst < elapsed)
+      worst = elapsed
+  }
+  console.log('best: ' + best + 'mills')
+  console.log('worst: ' + worst + 'mills')
+  console.log('avg: ' + avg + 'mills')
+}
+
 const playFullMatch = async (p1Moves: number[], p2Moves: number[]) => {
 
   const { player1Address, player2Address, player1Seed, player2Seed } = await createPlayers()
@@ -81,34 +102,35 @@ const createMatch = async (p1Moves: number[]) => {
 
 const { randomAccountWithBalance } = tests(testingHostSeed, api)
 
-it('create match and matches', async () => {
+it('create match and get it back', async () => {
 
   const p1Moves = [1, 1, 1]
   const p2Moves = [2, 2, 2]
 
   const { player1Address, player2Address, player1Seed, player2Seed } = await createPlayers()
+
   const s = service(api, keeperMock([player1Seed, player2Seed]))
 
   const { match, move: p1Move, moveHash: p1MoveHash } = await s.create(p1Moves)
 
   let m: IMatch
 
-  m = (await s.matches()).filter(m => m.address == match.address)[0]
+  m = await s.match(match.address)
   expect(m.status).toBe(MatchStatus.WaitingForP2)
 
   await s.join(match, p2Moves)
 
-  m = (await s.matches()).filter(m => m.address == match.address)[0]
+  m = await s.match(match.address)
   expect(m.status).toBe(MatchStatus.WaitingP1ToReveal)
 
   await s.reveal(match, p1Move)
 
-  m = (await s.matches()).filter(m => m.address == match.address)[0]
+  m = await s.match(match.address)
   expect(m.status).toBe(MatchStatus.WaitingForPayout)
 
   await s.payout(match)
 
-  m = (await s.matches()).filter(m => m.address == match.address)[0]
+  m = await s.match(match.address)
   expect(m.status).toBe(MatchStatus.Done)
   expect(m.result).toBe(MatchResult.Opponent)
 
@@ -125,31 +147,15 @@ xit('match sunny day', async () => {
   expect(p2Balance).toBeGreaterThan(gameBet)
 })
 
-xit('payout', async () => {
+xit('early payout', async () => {
+  const { match } = await createMatch([1, 1, 1])
 
   const s = service(api, keeperMock([]))
 
-  const player1Key = base58encode(BASE64_STRING('Msw1V6G9UqgmsEjyu2IxQZkRvSv0lUrFbmzcAtw5FCs='))
-  const player2Key = base58encode(BASE64_STRING('ayMGm4zZ2cUeCFGVkRv/9nwlKcwbeSgIoFlZf6qrczg='))
-  const matchKey = base58encode(BASE64_STRING('2wgFQsM5PWqe2TOMdJHOIxgkQ719OApkPlhf0ELxsFY='))
-  const matchAddress = address({ public: matchKey }, config.chainId)
-  const p1Moves = BASE64_STRING('AQEBYQ8WLj4JQEyDI8IR2qTMgkI7EqX9bCCaQtgHg8A=')
-  const p2Moves = BASE64_STRING('AgIClj04AuZXhu10TqvZjU8WJnG6VWGJwROe2wBtzOY=')
-  await s.payout(
-    {
-      address: matchAddress,
-      publicKey: matchKey,
-      status: MatchStatus.WaitingForPayout,
-      reservationHeight: 490893,
-      creator: {
-        address: address({ public: player1Key }, config.chainId),
-        publicKey: player1Key,
-        moves: [p1Moves[0], p1Moves[1], p1Moves[2]],
-      },
-      opponent: {
-        address: address({ public: player2Key }, config.chainId),
-        publicKey: player2Key,
-        moves: [p2Moves[0], p2Moves[1], p2Moves[2]],
-      },
-    })
+  expect(s.payout(match)).rejects.toThrow()
+})
+
+xit('matches benchmark', async () => {
+  const s = service(api, keeperMock([]))
+  await benchmark(10, async () => await s.matches())
 })
