@@ -102,6 +102,16 @@ const createMatch = async (p1Moves: number[]) => {
 
 const { randomAccountWithBalance } = tests(testingHostSeed, api)
 
+xit('get match', async () => {
+  const matchAddress = '3N92yfWhjrkCDJJfrg9H6SGT9fjHQiHwrr7'
+
+  const s = service(api, keeperMock([]))
+
+  const m = await s.match(matchAddress)
+
+  console.log(m)
+})
+
 it('create match and get it back', async () => {
 
   const p1Moves = [1, 1, 1]
